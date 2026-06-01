@@ -1,9 +1,11 @@
 name: garmin-sync
 
 on:
+  repository_dispatch:
+    types: [garmin-refresh]   # fired by the Worker /kick on watch events (swim done / wake)
   schedule:
-    - cron: "7 * * * *"   # hourly, at :07
-  workflow_dispatch: {}    # manual "Run workflow" button
+    - cron: "7 * * * *"       # hourly safety net, in case an event trigger is missed
+  workflow_dispatch: {}        # manual "Run workflow" button
 
 jobs:
   sync:
@@ -21,3 +23,5 @@ jobs:
           GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
           WORKER_URL: ${{ secrets.WORKER_URL }}
           PUSH_KEY: ${{ secrets.PUSH_KEY }}
+          # Event-triggered runs wait for Garmin's cloud to catch up; scheduled runs don't.
+          REFRESH_DELAY: ${{ github.event_name == 'repository_dispatch' && '90' || '0' }}

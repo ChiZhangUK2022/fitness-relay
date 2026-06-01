@@ -10,6 +10,9 @@
 //   PUT  /session?key=PUSH_KEY    -> save Garmin session token (body = text)
 //   PUT  /metrics?key=PUSH_KEY    -> save metrics (body = JSON)
 //   GET  /data?key=WATCH_KEY      -> read metrics (the watch calls this)
+//   GET  /kick?key=WATCH_KEY      -> watch fires this on activity-complete / wake;
+//                                    triggers the GitHub bot to fetch fresh data now
+//                                    (needs GH_TOKEN + GH_REPO env). Debounced 60s.
 
 export default {
   async fetch(request, env) {
@@ -24,6 +27,33 @@ export default {
         return new Response(m || "{}", {
           headers: { "content-type": "application/json" },
         });
+      }
+
+      if (path === "/kick" && method === "GET") {
+        if (key !== env.WATCH_KEY) return json({ error: "unauthorized" }, 401);
+        // Debounce: ignore repeat kicks within 60s so a chatty event can't
+        // hammer the GitHub bot.
+        const now = Date.now();
+        const last = parseInt((await env.TOKENS.get("lastKick")) || "0", 10);
+        if (now - last < 60000) return json({ ok: true, skipped: "debounced" });
+        await env.TOKENS.put("lastKick", String(now));
+        if (!env.GH_TOKEN || !env.GH_REPO) {
+          return json({ error: "GH_TOKEN/GH_REPO not configured" }, 500);
+        }
+        const r = await fetch(`https://api.github.com/repos/${env.GH_REPO}/dispatches`, {
+          method: "POST",
+          headers: {
+            authorization: `Bearer ${env.GH_TOKEN}`,
+            accept: "application/vnd.github+json",
+            "user-agent": "fitness-relay-worker",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            event_type: "garmin-refresh",
+            client_payload: { why: url.searchParams.get("why") || "event" },
+          }),
+        });
+        return json({ ok: r.ok, status: r.status });
       }
 
       if (path === "/session") {

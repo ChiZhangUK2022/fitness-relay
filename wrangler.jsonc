@@ -4,11 +4,10 @@
   "main": "src/index.js",
   "compatibility_date": "2026-05-20",
   "observability": { "enabled": true },
-  // Created by: wrangler kv namespace create TOKENS
-  // Paste the printed id below.
+  "vars": { "GH_REPO": "ChiZhangUK2022/fitness-relay" },
   "kv_namespaces": [
-    { "binding": "TOKENS", "id": "PASTE_KV_ID_HERE" }
+    { "binding": "TOKENS", "id": "c2855a16ab5d49d98208363f0547c0c4" }
   ]
-  // Secrets (set with `wrangler secret put NAME`, not here):
-  //   PUSH_KEY, WATCH_KEY
+  // Secrets (set with `wrangler secret put NAME`):
+  //   PUSH_KEY, WATCH_KEY, GH_TOKEN
 }

@@ -8,6 +8,7 @@ bot-protection dislikes). Needs these env vars (set as GitHub secrets):
 """
 import json
 import os
+import time
 from datetime import date, timedelta
 
 import requests
@@ -52,6 +53,13 @@ def login():
 
 
 def main():
+    # When triggered right after an activity/wake event, give Garmin's cloud a
+    # moment to sync + process before we read (set by the workflow for dispatch).
+    delay = int(os.environ.get("REFRESH_DELAY", "0"))
+    if delay > 0:
+        print(f"event-triggered: waiting {delay}s for Garmin to process...")
+        time.sleep(delay)
+
     g = login()
     # Persist the (possibly refreshed) session so next run skips the full login.
     try:
@@ -74,10 +82,18 @@ def main():
         print("sleep err:", e)
         out["sleep"] = None
 
-    # Training readiness (today). Endpoint returns a list; take the first entry.
+    # Training readiness (today) -- LATEST snapshot. Garmin logs readiness at
+    # "reset" moments (wake-up, after a workout); take the most recent by
+    # timestamp. (The value continuously drifting on the watch between resets
+    # is computed on-device and never uploaded, so this is the freshest the
+    # cloud offers.)
     try:
         tr = g.get_training_readiness(iso)
-        entry = tr[0] if isinstance(tr, list) and tr else (tr if isinstance(tr, dict) else None)
+        entry = None
+        if isinstance(tr, list) and tr:
+            entry = max(tr, key=lambda e: e.get("timestamp") or "")
+        elif isinstance(tr, dict):
+            entry = tr
         score = entry.get("score") if entry else None
         out["ready"] = int(score) if score is not None else None
     except Exception as e:
