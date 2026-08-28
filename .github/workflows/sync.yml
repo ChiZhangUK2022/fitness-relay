@@ -4,10 +4,8 @@ on:
   repository_dispatch:
     types: [garmin-refresh]   # fired by the Worker /kick on watch events (swim done / wake)
   schedule:
-    - cron: "7 */4 * * *"        # every 4h baseline safety net
-    - cron: "30,40,50 5 * * *"   # 6:30-6:50am London (gym opens 6:30; BST = UTC+1)
-    - cron: "*/10 6-9 * * *"     # every 10 min, 7-11am London
-    - cron: "*/30 17-21 * * *"   # every 30 min evening (watch activity events cover workout completion)
+    - cron: "*/20 5-9 * * *"     # every 20 min, 6-10am London (BST = UTC+1)
+    - cron: "7 * * * *"          # hourly the rest of the day
   workflow_dispatch: {}        # manual "Run workflow" button
 
 jobs:
