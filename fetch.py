@@ -16,8 +16,22 @@ from garminconnect import Garmin
 
 WORKER = os.environ["WORKER_URL"].rstrip("/")
 PUSH_KEY = os.environ["PUSH_KEY"]
+WATCH_KEY = os.environ.get("WATCH_KEY")
 EMAIL = os.environ.get("GARMIN_EMAIL")
 PASSWORD = os.environ.get("GARMIN_PASSWORD")
+
+
+def current_metrics():
+    # Read what the relay already holds, so we can preserve last-known values.
+    if not WATCH_KEY:
+        return {}
+    try:
+        r = requests.get(f"{WORKER}/data", params={"key": WATCH_KEY}, timeout=15)
+        if r.ok:
+            return r.json()
+    except Exception as e:
+        print("read current failed:", e)
+    return {}
 
 
 def get_session():
@@ -115,6 +129,15 @@ def main():
     except Exception as e:
         print("swim err:", e)
         out["swim_mi"] = None
+
+    # Garmin computes sleep/readiness a while AFTER you wake, so an early run
+    # returns None. Never wipe a good value with null -- keep the last-known one
+    # until a later run gets the real number.
+    cur = current_metrics()
+    for k in ("sleep", "ready", "swim_mi", "swim_km"):
+        if out.get(k) is None and cur.get(k) is not None:
+            out[k] = cur[k]
+            print(f"kept last-known {k}={cur[k]}")
 
     print("metrics:", out)
     put_metrics(out)
